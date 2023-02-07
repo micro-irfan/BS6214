@@ -1,0 +1,31 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=10:mem=10GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N Download2
+#PBS -o /home/users/ntu/muhamma4/output/dw2.o
+#PBS -e /home/users/ntu/muhamma4/output/dw2.e
+
+ssh muhamma7@nscc04-ib0
+module load anaconda
+source activate /home/users/ntu/jarkko/BS4017/rnaseq
+
+rawPath=/scratch/users/ntu/muhamma4/raw_data
+tmpPath=/scratch/users/ntu/muhamma4/tmp
+
+cat /home/users/ntu/muhamma4/scripts/SRA_list2.txt | while read p
+do
+    
+    echo Downloading
+    echo $p
+    cd $rawPath
+    
+    prefetch $p -O $rawPath
+    fasterq-dump $p --threads 10
+    echo Done
+done
+
+source deactivate
+echo All Done

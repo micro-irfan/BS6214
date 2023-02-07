@@ -1,0 +1,25 @@
+
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=16:mem=40GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N FeatureCount1
+#PBS -o /home/users/ntu/muhamma4/output/FeatureCount1.o
+#PBS -e /home/users/ntu/muhamma4/output/FeatureCount1.e
+
+EXPT=Human
+outPath='/home/users/ntu/muhamma4/scratch/STAR_result_1/'
+
+GTF_FILE='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/Annotation/Genes.gencode/genes.gtf'
+RESULTS=$outPath/RESULTS_FEATURECOUNT_${EXPT}
+featureCountsPath='/home/users/ntu/muhamma4/packages/subread-2.0.3-Linux-x86_64/bin/featureCounts'
+
+THREADS=16
+MAPQ=10
+GENEMX=${EXPT}_genes.mx
+
+cd $RESULTS
+
+$featureCountsPath -Q $MAPQ -T $THREADS -a $GTF_FILE -o ${EXPT}.count *.bam | cut -f1,7- | sed 1d > $outPath$GENEMX

@@ -1,0 +1,90 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=10:mem=40GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N GATK-2
+#PBS -o /home/users/ntu/muhamma4/output/GATK-Narrow-2.1.o
+#PBS -e /home/users/ntu/muhamma4/output/GATK-Narrow-2.1.e
+
+module load java
+module load samtools
+
+PICARD='/home/users/ntu/muhamma4/packages/picard.jar'
+GATK='/home/users/ntu/muhamma4/packages/gatk-4.3.0.0/gatk-package-4.3.0.0-local.jar'
+
+outPath='/home/users/ntu/muhamma4/scratch/STAR_result_2/RESULTS_FEATURECOUNT_Human/'
+genomeReferenceOriginal='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/Sequence/WholeGenomeFasta/genome.fa'
+
+## Chr 10 and Chr 22
+genomeReference='/home/users/ntu/muhamma4/scratch/narrow_reference/combined.fasta'
+
+function create_folder {
+    if [ -d $1 ]; then
+        rm -r $1
+    fi
+    mkdir $1
+}
+
+cd $outPath
+# create_folder GATK
+# create_folder liverVCF
+# create_folder liverUnfilteredVCF
+
+cat /home/users/ntu/muhamma4/scripts/liver_SRA_list.txt | while read accession
+do
+    cd $outPath/GATK
+    create_folder $accession
+    cd $accession
+    mkdir tmp
+
+    bamFile=${accession}.out.bam
+    java -jar $PICARD AddOrReplaceReadGroups -I $outPath/$bamFile\
+                                             -O $outPath/GATK/$accession/$accession.rg.bam \
+                                             --RGID LIVER-$accession \
+                                             --RGLB LIB-1 \
+                                             --RGPL ILLUMINA \
+                                             --RGPU Unit \
+                                             --RGSM LIVER-$accession
+
+    java -jar $PICARD SortSam -SO coordinate \
+                              -I $outPath/GATK/$accession/$accession.rg.bam \
+                              -O $outPath/GATK/$accession/$accession.rg.sorted.bam \
+                              -CREATE_INDEX true \
+                              -TMP_DIR $outPath/GATK/$accession/tmp
+
+    java -jar $PICARD MarkDuplicates -I $outPath/GATK/$accession/$accession.rg.sorted.bam \
+                                     -O $outPath/GATK/$accession/$accession.rg.rmdup.bam \
+                                     --METRICS_FILE $outPath/GATK/$accession/$accession.duplic.txt
+
+    java -jar $GATK SplitNCigarReads -R $genomeReferenceOriginal \
+                                     -I $outPath/GATK/$accession/$accession.rg.rmdup.bam  \
+                                     -O $outPath/GATK/$accession/$accession.rg.rmdup.SplitN.bam \
+                                     --tmp-dir $outPath/GATK/$accession/tmp
+
+    # Skipping BaseRecalibrator Step until I can find a good vcf file
+
+    samtools view -h $outPath/GATK/$accession/$accession.rg.rmdup.SplitN.bam | awk 'BEGIN{FS=OFS="\t"} ($1~/@SQ/ && $2~/^SN:chr10$|^SN:chr22$/){print $0} (/^@/ && !/@SQ/){print $0} ($1~!/@SQ/ && $3~/^chr22$|^chr10$/){print $0}' > $outPath/GATK/$accession/$accession.narrow.sam
+    java -jar $GATK SamFormatConverter -I $outPath/GATK/$accession/$accession.narrow.sam -O $outPath/GATK/$accession/$accession.narrow.bam
+    java -jar $GATK BuildBamIndex -I $outPath/GATK/$accession/$accession.narrow.bam
+
+    java -jar $GATK HaplotypeCaller -R $genomeReference \
+                                    -I $outPath/GATK/$accession/$accession.narrow.bam \
+                                    --emit-ref-confidence GVCF \
+                                    -O $outPath/GATK/$accession/$accession.g.vcf \
+
+    java -jar $GATK VariantFiltration -V $outPath/GATK/$accession/$accession.g.vcf \
+                                      -R $genomeReference \
+                                      --filter-expression "QD < 2.0 || FS > 60.0 || MQ < 40.0 || MQRankSum < -12.5 || ReadPosRankSum < -8.0 || AF < 0.05" \
+                                      --filter-name "HARDFILT" \
+                                      --genotype-filter-expression "GQ < 20" \
+                                      --genotype-filter-name "FILT" \
+                                      -O $outPath/GATK/$accession/$accession.vcf.gz 
+
+    cp $outPath/GATK/$accession/$accession.g.vcf $outPath/liverUnfilteredVCF
+    cp $outPath/GATK/$accession/$accession.vcf.gz $outPath/liverVCF
+
+done
+
+module unload java

@@ -1,0 +1,43 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=4:mem=12GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N rseqc2
+#PBS -o /home/users/ntu/muhamma4/output/rseqc2.o
+#PBS -e /home/users/ntu/muhamma4/output/rseqc2.e
+
+EXPT=Human
+referenceBody='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/referenceBody/hg38_GENCODE.v38.bed'
+outPath='/home/users/ntu/muhamma4/scratch/STAR_result_2'
+RESULTS=$outPath/RESULTS_FEATURECOUNT_${EXPT}
+
+function create_folder {
+  	if [ -d $1 ]; then
+    	rm -r $1
+  	fi
+  	mkdir $1
+}
+
+cd $outPath
+#create_folder rseqc_result_2
+
+cd $RESULTS
+
+module load samtools
+module load python/3.6.0
+source /home/users/ntu/muhamma4/rseqc/bin/activate
+
+for file in *.bam; do
+    n=${file%.*}
+    samtools index $file  $file".bai" 
+    bam_stat.py -i $file > ${outPath}/rseqc_result_2/${n}.bamstats.txt
+    junction_annotation.py -i $file -r $referenceBody -o ${outPath}/rseqc_result_2/${n}
+
+    #geneBody_coverage.py -r $referenceBody -i $file -o ${outPath}/rseqc_result_2/${n}
+    read_distribution.py  -i $file -r $referenceBody > ${outPath}/rseqc_result_2/${n}.readdistribution.txt
+    read_duplication.py -i $file -o ${outPath}/rseqc_result_2/${n}
+done
+
+deactivate

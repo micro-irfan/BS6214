@@ -1,0 +1,35 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=4:mem=16GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N qualimap1
+#PBS -o /home/users/ntu/muhamma4/output/qualimap1.o
+#PBS -e /home/users/ntu/muhamma4/output/qualimap1.e
+
+EXPT=Human
+GTF_FILE='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/Annotation/Genes.gencode/genes.gtf'
+outPath='/home/users/ntu/muhamma4/scratch/STAR_result_2'
+RESULTS=$outPath/RESULTS_FEATURECOUNT_${EXPT}
+
+function create_folder {
+  	if [ -d $1 ]; then
+    	rm -r $1
+  	fi
+  	mkdir $1
+}
+
+
+cd $outPath
+create_folder qualimap_result_1
+cd $RESULTS
+
+module load anaconda/3
+source activate BS6214-2
+
+for file in *.bam; do
+    echo $file
+    n=${file%.*} 
+    qualimap rnaseq -bam $file -gtf $GTF_FILE -outdir ${outPath}/qualimap_result_1/${n} --java-mem-size=16G
+done 

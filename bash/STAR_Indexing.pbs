@@ -1,0 +1,31 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=16:mem=64GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N STAR_Indexing
+#PBS -o /home/users/ntu/muhamma4/output/STAR_Indexing.o
+#PBS -e /home/users/ntu/muhamma4/output/STAR_Indexing.e
+
+genomeDir='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/STAR/'
+fastaPath='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/Sequence/WholeGenomeFasta/genome.fa'
+annotationPath='/home/users/ntu/muhamma4/scratch/reference_STAR/Homo_sapiens/NCBI/GRCh38Decoy/Annotation/Genes.gencode/genes.gtf'
+NumberOfThreads=16
+
+module load anaconda/3
+source activate /home/users/ntu/muhamma4/.conda/envs/BS6214-2
+
+mkdir $genomeDir
+
+cd /home/users/ntu/muhamma4/scratch/tmp
+
+STAR --runThreadN $NumberOfThreads \
+     --runMode genomeGenerate \
+     --genomeDir $genomeDir \
+     --genomeFastaFiles $fastaPath \
+     --sjdbGTFfile $annotationPath \
+     --sjdbOverhang 100
+
+source deactivate 
+module unload anaconda/3

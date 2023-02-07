@@ -1,0 +1,48 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=10:mem=40GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N Assignment-3
+#PBS -o /home/users/ntu/muhamma4/output/Assignment_3.2.o
+#PBS -e /home/users/ntu/muhamma4/output/Assignment_3.2.e
+
+## Alignment
+
+module load anaconda
+source activate /home/users/ntu/jarkko/BS6214
+
+accession='SRR6156314'	
+threads=10
+reference=/home/users/ntu/jarkko/BS6214/VitisVinifera.fa
+
+cd /home/users/ntu/muhamma4/scratch/assignment3
+
+# bwa mem -t 1 -o SRR6156314.sam /home/users/ntu/jarkko/BS6214/VitisVinifera.fa SRR6156314_1.fastq.gz SRR6156314_2.fastq.gz
+
+# bwa mem -t $threads -o ${accession}.sam $reference ${accession}_1.fastq.gz ${accession}_2.fastq.gz
+
+source deactivate
+module unload anaconda
+
+## Haplotype calling
+
+module load java
+GATK=/home/users/ntu/jarkko/BS6214/gatk-4.1.9.0/gatk
+TMP=/home/users/ntu/muhamma4/scratch/tmp
+
+# $GATK SamFormatConverter -I $accession.sam -O $accession.bam
+
+$GATK SortSam -SO coordinate -I $accession.bam -O $accession.sorted.bam --CREATE_INDEX true -TMP_DIR $TMP
+
+$GATK AddOrReplaceReadGroups -I $accession.sorted.bam -O $accession.sorted.rg.bam -ID $accession-Passerina -LB LIB-IID -PL Illumina -PU XX -SM Passerina
+
+$GATK MarkDuplicates -I $accession.sorted.rg.bam -O $accession.sorted.rg.rmdup.bam -M $accession.sorted.duplic.txt
+
+$GATK BuildBamIndex -I $accession.sorted.rg.rmdup.bam
+
+VITIS=/home/users/ntu/jarkko/BS6214/VitisVinifera.fa
+$GATK --java-options "-Xmx16G -Djava.io.tmpdir=/home/users/ntu/muhamma4/scratch/tmp" HaplotypeCaller -R $VITIS -I $accession.sorted.rg.rmdup.bam --emit-ref-confidence GVCF -O $accession.g.vcf.gz
+
+

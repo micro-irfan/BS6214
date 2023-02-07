@@ -1,0 +1,37 @@
+#!/bin/bash
+
+#PBS -q normal
+#PBS -l select=1:ncpus=10:mem=10GB
+#PBS -l walltime=24:00:00
+#PBS -P Personal 
+#PBS -N Kallisto2
+#PBS -o /home/users/ntu/muhamma4/output/Kallisto2.o
+#PBS -e /home/users/ntu/muhamma4/output/Kallisto2.e
+
+module load anaconda
+source activate /home/users/ntu/jarkko/BS4017/rnaseq
+
+rawPath='/home/users/ntu/muhamma4/scratch/raw_data/'
+outPath='/home/users/ntu/muhamma4/scratch/kallisto_result_1/'
+indexPath='/home/users/ntu/muhamma4/scratch/reference_kallisto/Homo_sapiens.GRCh38.index'
+
+x='_1.fastq'
+y='_2.fastq'
+kal='kal_'
+
+cat /home/users/ntu/muhamma4/scripts/SRA_list2.txt | while read p
+do
+	echo Analyzing $p
+	cd $outPath
+
+	mkdir $p 
+	cd $p
+
+	fastp --in1 $rawPath$p$x --in2 $rawPath$p$y
+	kallisto quant -i $indexPath --threads 10 -o . $rawPath$p$x $rawPath$p$y
+
+	echo Completed $p
+done
+
+source deactivate
+echo All Done
